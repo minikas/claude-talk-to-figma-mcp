@@ -353,7 +353,7 @@ export function registerDocumentTools(server: McpServer): void {
   // Export Node as Image Tool
   server.tool(
     "export_node_as_image",
-    "Export a node as an image from Figma",
+    "Export a node as an image from Figma. Pass `path` to save the image to a file on disk instead of returning it inline.",
     {
       nodeId: z.string().describe("The ID of the node to export"),
       format: z
@@ -361,8 +361,14 @@ export function registerDocumentTools(server: McpServer): void {
         .optional()
         .describe("Export format"),
       scale: z.coerce.number().positive().optional().describe("Export scale"),
+      path: z
+        .string()
+        .optional()
+        .describe(
+          "Optional absolute file path. When set, the image is saved to disk (PNG/JPG) and the tool returns the path as text instead of the inline image."
+        ),
     },
-    async ({ nodeId, format, scale }) => {
+    async ({ nodeId, format, scale, path }) => {
       try {
         const result = await sendCommandToFigma("export_node_as_image", {
           nodeId,
@@ -370,6 +376,21 @@ export function registerDocumentTools(server: McpServer): void {
           scale: scale || 1,
         }, 120000); // 120 second timeout for image export
         const typedResult = result as { imageData: string; mimeType: string };
+
+        // Fork patch (minikas): save-to-disk mode for agents that need a file
+        // (e.g. sending the image to Discord) instead of an inline image block.
+        if (path) {
+          const { writeFileSync } = await import("fs");
+          writeFileSync(path, Buffer.from(typedResult.imageData, "base64"));
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Image saved to ${path} (${typedResult.mimeType || "image/png"})`,
+              },
+            ],
+          };
+        }
 
         return {
           content: [
