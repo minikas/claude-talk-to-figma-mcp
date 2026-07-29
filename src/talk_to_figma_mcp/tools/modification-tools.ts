@@ -661,17 +661,28 @@ export function registerModificationTools(server: McpServer): void {
   // Set Image Fill Tool
   server.tool(
     "set_image",
-    "Set an image fill on a node from base64-encoded image data. Supports PNG, JPEG, GIF, WebP. Max ~5MB after decode.",
+    "Set an image fill on a node from base64-encoded image data or a local file path. Supports PNG, JPEG, GIF, WebP. Max ~5MB after decode.",
     {
       nodeId: z.string().describe("The ID of the node to apply the image fill to"),
-      imageData: z.string().max(7_000_000).describe("Base64-encoded image data (PNG, JPEG, GIF, or WebP). Max ~5MB after decode."),
+      imageData: z.string().max(7_000_000).optional().describe("Base64-encoded image data (PNG, JPEG, GIF, or WebP). Max ~5MB after decode. Required if `path` is not set."),
+      path: z.string().optional().describe("Optional absolute file path of an image (PNG/JPEG/GIF/WebP). When set, the file is read from disk and base64-encoded server-side — avoids passing large base64 inline."),
       scaleMode: z.enum(["FILL", "FIT", "CROP", "TILE"]).optional().describe("How the image is scaled within the node (default: FILL)"),
     },
-    async ({ nodeId, imageData, scaleMode }) => {
+    async ({ nodeId, imageData, path, scaleMode }) => {
       try {
+        // Fork patch (minikas): read-from-disk mode — symmetrical to the
+        // export_node_as_image `path` param; keeps big images out of the context.
+        let data = imageData;
+        if (path) {
+          const { readFileSync } = await import("fs");
+          data = readFileSync(path).toString("base64");
+        }
+        if (!data) {
+          throw new Error("Provide either imageData or path");
+        }
         const result = await sendCommandToFigma("set_image", {
           nodeId,
-          imageData,
+          imageData: data,
           scaleMode: scaleMode || "FILL",
         });
         const typedResult = result as { name: string; imageHash: string };

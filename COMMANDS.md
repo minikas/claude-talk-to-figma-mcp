@@ -151,3 +151,11 @@ contrast issues"
 2. **Use references:** "Like the button in the previous section" helps maintain consistency
 3. **Break down complex tasks:** It's better to make several small changes than one very large one
 4. **Check selection:** Make sure the correct element is selected before requesting modifications
+
+## Fork patches (minikas)
+
+- `export_node_as_image` — optional `path` param: saves the export (PNG/JPG) to a
+  file on disk and returns the path as text, instead of an inline image block.
+- `set_image` — `imageData` is now optional and there's an optional `path` param:
+  reads the image file from disk and base64-encodes it server-side, avoiding large
+  base64 payloads inline in the tool call.
