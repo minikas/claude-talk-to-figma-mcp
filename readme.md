@@ -1,4 +1,4 @@
-![Claude Talk to Figma collage](images/claude-talk-to-figma.png)
+![Agents Talk to Figma collage](images/claude-talk-to-figma.png)
 
 # <del>Claude</del> <ins>AI Agents</ins> Talk to Figma MCP
 
@@ -8,6 +8,7 @@ Works with your favorite agentic tools:
 
 - [Claude Desktop](https://claude.ai/)
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+- [Kimi Code](https://www.kimi.com/)
 - [Cursor](https://cursor.com/)
 - [Antigravity](https://antigravity.google/)
 - [Windsurf](https://windsurf.com/)

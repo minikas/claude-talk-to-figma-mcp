@@ -72,6 +72,13 @@ figma.ui.onmessage = async (msg) => {
     case "notify":
       figma.notify(msg.message);
       break;
+    case "refresh-channel": {
+      // Fork patch (minikas): regenerate the persistent channel on demand.
+      const channel = generateChannelName();
+      await figma.clientStorage.setAsync("channel", channel);
+      figma.ui.postMessage({ type: "channel", channel });
+      break;
+    }
     case "close-plugin":
       figma.closePlugin();
       break;
@@ -96,9 +103,28 @@ figma.ui.onmessage = async (msg) => {
   }
 };
 
+// Fork patch (minikas): persistent channel — generated once at first run and
+// stored in clientStorage, so agents (e.g. sentinelas) can rely on a fixed ID.
+function generateChannelName() {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let res = "";
+  for (let i = 0; i < 8; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
+  return res;
+}
+
+async function getOrCreateChannel() {
+  let channel = await figma.clientStorage.getAsync("channel");
+  if (!channel) {
+    channel = generateChannelName();
+    await figma.clientStorage.setAsync("channel", channel);
+  }
+  return channel;
+}
+
 // Listen for plugin commands from menu
-figma.on("run", ({ command }) => {
-  figma.ui.postMessage({ type: "auto-connect" });
+figma.on("run", async () => {
+  const channel = await getOrCreateChannel();
+  figma.ui.postMessage({ type: "auto-connect", channel });
 });
 
 // Update plugin settings

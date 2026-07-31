@@ -506,14 +506,38 @@ function handleConnection(ws: ServerWebSocket<any>) {
 
 // ─── Server ────────────────────────────────────────────────────────────────
 
+// Fork patch (minikas): origin allowlist. Browsers always send Origin on
+// cross-site requests (WebSocket is NOT covered by CORS), while local processes
+// (MCP server, curl) don't send it. This blocks the "malicious website →
+// ws://localhost:3055" attack chain.
+function isOriginAllowed(req: Request): boolean {
+  const origin = req.headers.get("origin");
+  if (!origin) return true; // non-browser clients don't send Origin
+  if (origin === "null") return true; // Figma plugin iframe (sandboxed → opaque origin)
+  try {
+    const u = new URL(origin);
+    return u.hostname === "localhost" || u.hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
 const server = Bun.serve({
   port: 3055,
+  // Fork patch (minikas): bind localhost only — Bun's default is 0.0.0.0, which
+  // exposes the server to the whole LAN.
+  hostname: "127.0.0.1",
   // uncomment this to allow connections in windows wsl
   // hostname: "0.0.0.0",
   fetch(req: Request, server: Server) {
     const url = new URL(req.url);
 
     logger.debug(`Received ${req.method} request to ${url.pathname}`);
+
+    if (!isOriginAllowed(req)) {
+      logger.warn(`Rejected request with Origin: ${req.headers.get("origin")}`);
+      return new Response("Forbidden", { status: 403 });
+    }
 
     // Handle CORS preflight
     if (req.method === "OPTIONS") {
@@ -533,11 +557,10 @@ const server = Bun.serve({
         uptime: process.uptime(),
         stats,
         queue: {
-          channels: Array.from(channelQueues.entries()).map(([name, state]) => ({
-            channel: name,
-            queueDepth: state.queue.length,
-            isProcessing: state.isProcessing,
-          })),
+          // Fork patch (minikas): don't expose channel names — they're the only
+          // secret protecting a channel, and this endpoint is reachable from any
+          // website (CORS *) if left open.
+          channelCount: channelQueues.size,
           pendingRequests: requestToClient.size,
           agentCount: agentClients.size,
           pluginCount: pluginClients.size,

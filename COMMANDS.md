@@ -159,3 +159,24 @@ contrast issues"
 - `set_image` — `imageData` is now optional and there's an optional `path` param:
   reads the image file from disk and base64-encodes it server-side, avoiding large
   base64 payloads inline in the tool call.
+- Plugin UI (`claude_mcp_plugin/ui.html`) — the disconnected state no longer shows
+  the red "Disconnected from server…" banner; it is just a full-width Connect
+  button (label switches to "Connecting…" while connecting). The status banner
+  still appears when connected (channel ID) and on connection errors.
+- Persistent channel (`claude_mcp_plugin/code.js` + `ui.html`) — the channel ID is
+  generated once and stored in `figma.clientStorage`, so it survives plugin
+  restarts (agents can rely on a fixed ID, e.g. via env). A refresh icon next to
+  the channel ID in the connected banner regenerates it (and reconnects); a
+  random ID is created on first run if none is stored. The ID is also shown in an
+  always-visible "Channel:" line (even disconnected), since it exists before the
+  socket does — clicking it copies just the ID.
+- Auto-reconnect (`claude_mcp_plugin/ui.html`) — on an unintentional close the
+  plugin retries the connection on the persisted channel with exponential backoff
+  (1s→2s→5s→10s→30s cap), so it detects the socket (re)appearing without the user
+  clicking Connect. Errors are silent while retrying (no banner flashing); a
+  manual Disconnect cancels the retry loop.
+- Security hardening (`socket.ts`) — (1) bind `127.0.0.1` only (Bun's default is
+  `0.0.0.0`, i.e. the whole LAN); (2) Origin allowlist on HTTP + WebSocket upgrade
+  (browsers always send Origin, local processes don't — blocks the "malicious
+  website → ws://localhost" chain); (3) `/status` no longer exposes channel names
+  (only `channelCount`).
